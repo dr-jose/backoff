@@ -11,7 +11,7 @@ type Operation func() error
 //
 // NOTE that if the backoff policy stated to stop retrying,
 // the notify function isn't called.
-type Notify func(error, time.Duration)
+type Notify func(err error, attempt int, interval time.Duration)
 
 // Retry the operation o until it does not return error or BackOff stops.
 // o is guaranteed to be run at least once.
@@ -33,6 +33,8 @@ func RetryNotify(operation Operation, b BackOff, notify Notify) error {
 	cb := ensureContext(b)
 
 	b.Reset()
+
+	var count int = 1
 	for {
 		if err = operation(); err == nil {
 			return nil
@@ -47,7 +49,7 @@ func RetryNotify(operation Operation, b BackOff, notify Notify) error {
 		}
 
 		if notify != nil {
-			notify(err, next)
+			notify(err, count, next)
 		}
 
 		t := time.NewTimer(next)
@@ -58,6 +60,8 @@ func RetryNotify(operation Operation, b BackOff, notify Notify) error {
 			return err
 		case <-t.C:
 		}
+
+		count = count + 1
 	}
 }
 
